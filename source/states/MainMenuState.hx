@@ -118,6 +118,15 @@ class MainMenuState extends MusicBeatState
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
 
+		if (utilities.Options.getData("watermarks"))
+		{
+			versionShit.y -= 16;
+			var versionShit2:FlxText = new FlxText(5, FlxG.height - 18, 0, 'ZoroForce Fork', 16);
+			versionShit2.scrollFactor.set();
+			versionShit2.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			add(versionShit2);	
+		}
+
 		changeItem();
 
 		super.create();

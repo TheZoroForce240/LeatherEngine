@@ -1,5 +1,6 @@
 package game;
 
+import flixel.FlxG;
 import utilities.NoteVariables;
 import shaders.ColorSwap;
 import shaders.NoteColors;
@@ -60,7 +61,7 @@ class StrumNote extends FlxSprite
 		colorSwap.saturation = noteColor[1] / 100;
 		colorSwap.brightness = noteColor[2] / 100;
 
-		if (utilities.Options.getData("downscroll")) //flip to match camera
+		if (utilities.Options.getData("downscroll") && Std.isOfType(FlxG.state, PlayState)) //flip to match camera
 			flipY = true;
 	}
 

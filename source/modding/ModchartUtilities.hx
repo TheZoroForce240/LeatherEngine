@@ -58,7 +58,7 @@ class ModchartUtilities
 				return Reflect.getProperty(PlayState.instance, id);
 
 			@:privateAccess
-			return PlayState.strumLineNotes.members[Std.parseInt(id)];
+			return PlayState.strumLineNotes.members[Std.parseInt(id)%PlayState.strumLineNotes.members.length];
 		}
 
 		return lua_Sprites.get(id);

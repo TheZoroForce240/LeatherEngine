@@ -656,6 +656,7 @@ class PlayState extends MusicBeatState
 			playerStrums = new FlxTypedGroup<StrumNote>();
 			enemyStrums = new FlxTypedGroup<StrumNote>();
 
+			generateEvents(); //need to do these just before generating song for mania change shit
 			generateSong(SONG.song);
 
 			camFollow = new FlxObject(0, 0, 1, 1);
@@ -915,104 +916,8 @@ class PlayState extends MusicBeatState
 			MusicBeatState.windowNameSuffix = " - " + SONG.song + " " + (isStoryMode ? "(Story Mode)" : "(Freeplay)");
 
 			fromPauseMenu = false;
-
-			baseEvents = [];
-			events = [];
-
-			if (SONG.events.length > 0)
-			{
-				for (event in SONG.events)
-				{
-					baseEvents.push(event);
-					events.push(event);
-				}
-			}
-
-			if (Assets.exists(Paths.songEvents(SONG.song.toLowerCase(), storyDifficultyStr.toLowerCase())) && !chartingMode)
-			{
-				trace(Paths.songEvents(SONG.song.toLowerCase(), storyDifficultyStr.toLowerCase()));
-
-				var eventFunnies:Array<Array<Dynamic>> = Song.parseJSONshit(Assets.getText(Paths.songEvents(SONG.song.toLowerCase(),
-					storyDifficultyStr.toLowerCase())))
-					.events;
-
-				for (event in eventFunnies)
-				{
-					baseEvents.push(event);
-					events.push(event);
-				}
-			}
-
-			for (event in events)
-			{
-				var map:Map<String, Dynamic>;
-
-				switch (event[2].toLowerCase())
-				{
-					case "dad" | "opponent" | "player2" | "1":
-						map = dadMap;
-					case "gf" | "girlfriend" | "player3" | "2":
-						map = gfMap;
-					default:
-						map = bfMap;
-				}
-
-				// cache shit
-				if (utilities.Options.getData("charsAndBGs"))
-				{
-					if (event[0].toLowerCase() == "change character" && event[1] <= FlxG.sound.music.length && !map.exists(event[3]))
-					{
-						var funnyCharacter:Character;
-
-						if (map == bfMap)
-							funnyCharacter = new Boyfriend(100, 100, event[3]);
-						else
-							funnyCharacter = new Character(100, 100, event[3]);
-
-						funnyCharacter.alpha = 0.00001;
-						add(funnyCharacter);
-
-						map.set(event[3], funnyCharacter);
-
-						if (funnyCharacter.otherCharacters != null)
-						{
-							for (character in funnyCharacter.otherCharacters)
-							{
-								character.alpha = 0.00001;
-								add(character);
-							}
-						}
-
-						trace(funnyCharacter.curCharacter);
-						trace(event[3]);
-					}
-
-					if (event[0].toLowerCase() == "change stage"
-						&& event[1] <= FlxG.sound.music.length
-						&& !stageMap.exists(event[2])
-						&& Options.getData("preloadChangeBGs"))
-					{
-						var funnyStage = new StageGroup(event[2]);
-						funnyStage.visible = false;
-
-						stageMap.set(event[2], funnyStage);
-
-						trace(funnyStage.stage);
-					}
-				}
-
-				#if linc_luajit
-				if (!event_luas.exists(event[0].toLowerCase()) && Assets.exists(Paths.lua("event data/" + event[0].toLowerCase())))
-				{
-					event_luas.set(event[0].toLowerCase(),
-						ModchartUtilities.createModchartUtilities(PolymodAssets.getPath(Paths.lua("event data/" + event[0].toLowerCase()))));
-					generatedSomeDumbEventLuas = true;
-				}
-				#end
-			}
 		}
 
-		events.sort((a, b) -> Std.int(a[1] - b[1]));
 
 		super.create();
 
@@ -1480,6 +1385,8 @@ class PlayState extends MusicBeatState
 
 	var debugNum:Int = 0;
 
+	
+	private var maniaChanges:Array<Dynamic> = [];
 	public function generateSong(dataPath:String):Void
 	{
 		// FlxG.log.add(ChartParser.parse());
@@ -1519,6 +1426,9 @@ class PlayState extends MusicBeatState
 
 		var daBeats:Int = 0; // Not exactly representative of 'daBeats' lol, just how much it has looped
 
+		var currentParsingKeyCount = SONG.keyCount;
+		var currentParsingPlayerKeyCount = SONG.playerKeyCount;
+
 		for (section in noteData)
 		{
 			Conductor.recalculateStuff(songMultiplier);
@@ -1527,9 +1437,22 @@ class PlayState extends MusicBeatState
 			{
 				var daStrumTime:Float = songNotes[0] + Conductor.offset + SONG.chartOffset;
 
+				for (mchange in maniaChanges)
+				{
+					if (daStrumTime >= mchange[0])
+					{
+						currentParsingKeyCount = mchange[2];
+						currentParsingPlayerKeyCount = mchange[1];
+
+						SONG.keyCount = currentParsingKeyCount; //so notes are correct anim/scale and whatever
+						SONG.playerKeyCount = currentParsingPlayerKeyCount;
+						//SONG.mania = mania; 
+					}
+				}
+
 				var gottaHitNote:Bool = section.mustHitSection;
 
-				if (songNotes[1] >= (!gottaHitNote ? SONG.keyCount : SONG.playerKeyCount))
+				if (songNotes[1] >= (!gottaHitNote ? currentParsingKeyCount : currentParsingPlayerKeyCount))
 					gottaHitNote = !section.mustHitSection;
 
 				if (characterPlayingAs == 1)
@@ -1538,7 +1461,7 @@ class PlayState extends MusicBeatState
 				if (characterPlayingAs == -1)
 					gottaHitNote = true;
 
-				var daNoteData:Int = Std.int(songNotes[1] % (!gottaHitNote ? SONG.keyCount : SONG.playerKeyCount));
+				var daNoteData:Int = Std.int(songNotes[1] % (!gottaHitNote ? currentParsingKeyCount : currentParsingPlayerKeyCount));
 
 				var oldNote:Note;
 
@@ -1617,9 +1540,123 @@ class PlayState extends MusicBeatState
 			daBeats += 1;
 		}
 
+		SONG.keyCount = ogKeyCount;
+		SONG.playerKeyCount = ogPlayerKeyCount;
+
+		if (characterPlayingAs == 1)
+		{
+			SONG.keyCount = ogPlayerKeyCount;
+			SONG.playerKeyCount = ogKeyCount;
+		}
+
 		unspawnNotes.sort(sortByShit);
 
 		generatedMusic = true;
+	}
+
+	function generateEvents()
+	{
+		baseEvents = [];
+		events = [];
+
+		if (SONG.events.length > 0)
+		{
+			for (event in SONG.events)
+			{
+				baseEvents.push(event);
+				events.push(event);
+			}
+		}
+
+		if (Assets.exists(Paths.songEvents(SONG.song.toLowerCase(), storyDifficultyStr.toLowerCase())) && !chartingMode)
+		{
+			trace(Paths.songEvents(SONG.song.toLowerCase(), storyDifficultyStr.toLowerCase()));
+
+			var eventFunnies:Array<Array<Dynamic>> = Song.parseJSONshit(Assets.getText(Paths.songEvents(SONG.song.toLowerCase(),
+				storyDifficultyStr.toLowerCase())))
+				.events;
+
+			for (event in eventFunnies)
+			{
+				baseEvents.push(event);
+				events.push(event);
+			}
+		}
+
+		for (event in events)
+		{
+			var map:Map<String, Dynamic>;
+
+			switch (event[2].toLowerCase())
+			{
+				case "dad" | "opponent" | "player2" | "1":
+					map = dadMap;
+				case "gf" | "girlfriend" | "player3" | "2":
+					map = gfMap;
+				default:
+					map = bfMap;
+			}
+
+			// cache shit
+			if (utilities.Options.getData("charsAndBGs"))
+			{
+				if (event[0].toLowerCase() == "change character" && event[1] <= FlxG.sound.music.length && !map.exists(event[3]))
+				{
+					var funnyCharacter:Character;
+
+					if (map == bfMap)
+						funnyCharacter = new Boyfriend(100, 100, event[3]);
+					else
+						funnyCharacter = new Character(100, 100, event[3]);
+
+					funnyCharacter.alpha = 0.00001;
+					add(funnyCharacter);
+
+					map.set(event[3], funnyCharacter);
+
+					if (funnyCharacter.otherCharacters != null)
+					{
+						for (character in funnyCharacter.otherCharacters)
+						{
+							character.alpha = 0.00001;
+							add(character);
+						}
+					}
+
+					trace(funnyCharacter.curCharacter);
+					trace(event[3]);
+				}
+
+				if (event[0].toLowerCase() == "change stage"
+					&& event[1] <= FlxG.sound.music.length
+					&& !stageMap.exists(event[2])
+					&& Options.getData("preloadChangeBGs"))
+				{
+					var funnyStage = new StageGroup(event[2]);
+					funnyStage.visible = false;
+
+					stageMap.set(event[2], funnyStage);
+
+					trace(funnyStage.stage);
+				}
+
+				if (event[0].toLowerCase() == "change mania")
+				{
+					maniaChanges.push([event[1], Std.parseInt(event[2]), Std.parseInt(event[3])]); //track strumtime, p1 keycount, p2 keycount
+				}
+			}
+
+			#if linc_luajit
+			if (!event_luas.exists(event[0].toLowerCase()) && Assets.exists(Paths.lua("event data/" + event[0].toLowerCase())))
+			{
+				event_luas.set(event[0].toLowerCase(),
+					ModchartUtilities.createModchartUtilities(PolymodAssets.getPath(Paths.lua("event data/" + event[0].toLowerCase()))));
+				generatedSomeDumbEventLuas = true;
+			}
+			#end
+		}
+
+		events.sort((a, b) -> Std.int(a[1] - b[1]));
 	}
 
 	function sortByShit(Obj1:Note, Obj2:Note):Int
@@ -2285,7 +2322,8 @@ class PlayState extends MusicBeatState
 		{
 			notes.forEachAlive(function(daNote:Note)
 			{
-				var coolStrum = (daNote.mustPress ? playerStrums.members[Math.floor(Math.abs(daNote.noteData))] : enemyStrums.members[Math.floor(Math.abs(daNote.noteData))]);
+				var coolStrum = (daNote.mustPress ? playerStrums.members[Math.floor(Math.abs(daNote.noteData))%playerStrums.members.length] : 
+				enemyStrums.members[Math.floor(Math.abs(daNote.noteData))%enemyStrums.members.length]);
 				var strumY = coolStrum.y;
 
 				//if ((daNote.y > FlxG.height || daNote.y < daNote.height) || (daNote.x > FlxG.width || daNote.x < daNote.width)) //this doesnt work properly lol
@@ -2499,8 +2537,8 @@ class PlayState extends MusicBeatState
 				{
 					if (daNote.mustPress && !daNote.modifiedByLua)
 					{
-						var coolStrum = playerStrums.members[Math.floor(Math.abs(daNote.noteData))];
-						var arrayVal = Std.string([daNote.noteData, daNote.arrow_Type, daNote.isSustainNote]);
+						var coolStrum = playerStrums.members[Math.floor(Math.abs(daNote.noteData))%playerStrums.members.length];
+						var arrayVal = Std.string([daNote.noteData, daNote.arrow_Type, daNote.isSustainNote, SONG.playerKeyCount]);
 
 						daNote.visible = coolStrum.visible;
 
@@ -2537,8 +2575,8 @@ class PlayState extends MusicBeatState
 					}
 					else if (!daNote.wasGoodHit && !daNote.modifiedByLua)
 					{
-						var coolStrum = enemyStrums.members[Math.floor(Math.abs(daNote.noteData))];
-						var arrayVal = Std.string([daNote.noteData, daNote.arrow_Type, daNote.isSustainNote]);
+						var coolStrum = enemyStrums.members[Math.floor(Math.abs(daNote.noteData))%enemyStrums.members.length];
+						var arrayVal = Std.string([daNote.noteData, daNote.arrow_Type, daNote.isSustainNote, SONG.keyCount]);
 
 						daNote.visible = coolStrum.visible;
 
@@ -4762,6 +4800,58 @@ class PlayState extends MusicBeatState
 
 					addBgStuff();
 				}
+			case 'change mania': 
+
+
+				var p1keycount:Int = Std.parseInt(event[2]);
+				var p2keycount:Int = Std.parseInt(event[3]);
+
+				SONG.keyCount = p2keycount;
+				SONG.playerKeyCount = p1keycount;
+
+				if (characterPlayingAs == 1)
+				{		
+					SONG.keyCount = p1keycount;
+					SONG.playerKeyCount = p2keycount;
+				}
+
+				playerStrums.clear();
+				enemyStrums.clear();
+				strumLineNotes.clear();
+
+				binds = NoteHandler.getBinds(SONG.playerKeyCount);
+
+				if (utilities.Options.getData("middlescroll"))
+				{
+					generateStaticArrows(50, false);
+					generateStaticArrows(0.5, true);
+				}
+				else
+				{
+					if (characterPlayingAs == 0)
+					{
+						generateStaticArrows(0, false);
+						generateStaticArrows(1, true);
+					}
+					else
+					{
+						generateStaticArrows(1, false);
+						generateStaticArrows(0, true);
+					}
+				}
+
+				#if linc_luajit
+				for (i in 0...strumLineNotes.length)
+				{
+					var member = strumLineNotes.members[i];
+		
+					setLuaVar("defaultStrum" + i + "X", member.x);
+					setLuaVar("defaultStrum" + i + "Y", member.y);
+					setLuaVar("defaultStrum" + i + "Angle", member.angle);
+				}
+				#end
+
+				
 		}
 
 		#if linc_luajit
