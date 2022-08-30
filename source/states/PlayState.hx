@@ -133,6 +133,7 @@ class PlayState extends MusicBeatState
 	public var iconP1:HealthIcon;
 	public var iconP2:HealthIcon;
 	public var camHUD:FlxCamera;
+	public var camNotes:FlxCamera;
 	public var camGame:FlxCamera;
 
 	public var gfVersion:String = 'gf';
@@ -357,11 +358,17 @@ class PlayState extends MusicBeatState
 
 		camGame = new FlxCamera();
 		camHUD = new FlxCamera();
+		camNotes = new FlxCamera();
 
 		FlxG.cameras.reset(camGame);
+		FlxG.cameras.add(camNotes, false);
 		FlxG.cameras.add(camHUD, false);
+		
+		if (utilities.Options.getData("downscroll"))
+			camNotes.flashSprite.scaleY *= -1; //just flip the camera lol
 
 		camHUD.bgColor.alpha = 0;
+		camNotes.bgColor.alpha = 0;
 
 		persistentUpdate = true;
 		persistentDraw = true;
@@ -397,7 +404,7 @@ class PlayState extends MusicBeatState
 		Conductor.safeZoneOffset *= songMultiplier;
 
 		noteBG = new FlxSprite(0, 0);
-		noteBG.cameras = [camHUD];
+		noteBG.cameras = [camNotes];
 		noteBG.makeGraphic(1, 1000, FlxColor.BLACK);
 
 		add(noteBG);
@@ -639,8 +646,8 @@ class PlayState extends MusicBeatState
 
 			strumLine = new FlxSprite(0, 100).makeGraphic(FlxG.width, 10);
 
-			if (utilities.Options.getData("downscroll"))
-				strumLine.y = FlxG.height - 100;
+			//if (utilities.Options.getData("downscroll"))
+				//strumLine.y = FlxG.height - 100;
 
 			strumLine.scrollFactor.set();
 
@@ -700,7 +707,7 @@ class PlayState extends MusicBeatState
 			splash_group.add(cache_splash);
 
 			add(splash_group);
-			splash_group.cameras = [camHUD];
+			splash_group.cameras = [camNotes];
 
 			add(camFollow);
 
@@ -850,8 +857,8 @@ class PlayState extends MusicBeatState
 				updateRatingText();
 			}
 
-			strumLineNotes.cameras = [camHUD];
-			notes.cameras = [camHUD];
+			strumLineNotes.cameras = [camNotes];
+			notes.cameras = [camNotes];
 			healthBar.cameras = [camHUD];
 			healthBarBG.cameras = [camHUD];
 			iconP1.cameras = [camHUD];
@@ -1585,7 +1592,7 @@ class PlayState extends MusicBeatState
 				{
 					oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
 
-					var sustainNote:Note = new Note(daStrumTime + (Std.int(Conductor.stepCrochet) * susNote) + Std.int(Conductor.stepCrochet), daNoteData,
+					var sustainNote:Note = new Note(daStrumTime + (Std.int(Conductor.stepCrochet) * susNote) + Std.int(Conductor.stepCrochet / FlxMath.roundDecimal(speed, 2)), daNoteData,
 						oldNote, true, char, songNotes[4], null, chars, gottaHitNote);
 					sustainNote.scrollFactor.set();
 					unspawnNotes.push(sustainNote);
@@ -1683,15 +1690,20 @@ class PlayState extends MusicBeatState
 
 				var keyThingLolShadow = new FlxText((babyArrow.x + (babyArrow.width / 2)) - (coolWidth / 2), babyArrow.y - (coolWidth / 2), coolWidth,
 					binds[i], coolWidth);
-				keyThingLolShadow.cameras = [camHUD];
+				keyThingLolShadow.cameras = [camNotes];
 				keyThingLolShadow.color = FlxColor.BLACK;
 				keyThingLolShadow.scrollFactor.set();
 				add(keyThingLolShadow);
 
 				var keyThingLol = new FlxText(keyThingLolShadow.x - 6, keyThingLolShadow.y - 6, coolWidth, binds[i], coolWidth);
-				keyThingLol.cameras = [camHUD];
+				keyThingLol.cameras = [camNotes];
 				keyThingLol.scrollFactor.set();
 				add(keyThingLol);
+				if (utilities.Options.getData("downscroll"))
+				{
+					keyThingLolShadow.flipY = true;
+					keyThingLol.flipY = true;
+				}
 
 				FlxTween.tween(keyThingLolShadow, {y: keyThingLolShadow.y + 10, alpha: 0}, 3, {
 					ease: FlxEase.circOut,
@@ -1956,6 +1968,12 @@ class PlayState extends MusicBeatState
 			updateSongInfoText();
 			song_info_timer = 0;
 		}
+
+		camNotes.x = camHUD.x; //match cameras properly
+		camNotes.y = camHUD.y;
+		camNotes.zoom = camHUD.zoom;
+		camNotes.angle = camHUD.angle;
+		camNotes.alpha = camHUD.alpha;
 
 		if (stopSong && !switchedStates)
 		{
@@ -2270,21 +2288,22 @@ class PlayState extends MusicBeatState
 				var coolStrum = (daNote.mustPress ? playerStrums.members[Math.floor(Math.abs(daNote.noteData))] : enemyStrums.members[Math.floor(Math.abs(daNote.noteData))]);
 				var strumY = coolStrum.y;
 
-				if ((daNote.y > FlxG.height || daNote.y < daNote.height) || (daNote.x > FlxG.width || daNote.x < daNote.width))
-				{
-					daNote.active = false;
-					daNote.visible = false;
-				}
-				else
-				{
-					daNote.visible = true;
-					daNote.active = true;
-				}
+				//if ((daNote.y > FlxG.height || daNote.y < daNote.height) || (daNote.x > FlxG.width || daNote.x < daNote.width)) //this doesnt work properly lol
+				//{
+				//	daNote.active = false;
+				//	daNote.visible = false;
+				//}
+				//else
+				//{
 
-				var swagWidth = daNote.width;
-				var center:Float = strumY + swagWidth / 2;
+				//}
+				daNote.visible = daNote.isOnScreen(camNotes);
+				daNote.active = daNote.visible;
 
-				if (utilities.Options.getData("downscroll"))
+				//var swagWidth = daNote.width;
+				var center:Float = strumY + ((160*coolStrum.scale.x)/2);
+
+				/*if (utilities.Options.getData("downscroll"))
 				{
 					daNote.y = strumY + (0.45 * (Conductor.songPosition - daNote.strumTime) * FlxMath.roundDecimal(speed, 2));
 
@@ -2309,29 +2328,29 @@ class PlayState extends MusicBeatState
 					}
 				}
 				else
-				{
+				{*/
 					daNote.y = strumY - (0.45 * (Conductor.songPosition - daNote.strumTime) * FlxMath.roundDecimal(speed, 2));
 
 					if (daNote.isSustainNote)
 					{
-						daNote.y -= daNote.height / 2;
+						//daNote.y -= daNote.height / 2;
 
-						if (((daNote.wasGoodHit || daNote.prevNote.wasGoodHit) && daNote.shouldHit)
-							&& daNote.y + daNote.offset.y * daNote.scale.y <= (strumLine.y + Note.swagWidth / 2))
+						if (((daNote.wasGoodHit || daNote.prevNote.wasGoodHit || !daNote.mustPress) && daNote.shouldHit)
+							&& daNote.y + daNote.offset.y * daNote.scale.y <= (center))
 						{
 							// Clip to strumline
 							var swagRect = new FlxRect(0, 0, daNote.width / daNote.scale.x, daNote.height / daNote.scale.y);
-							swagRect.y = (coolStrum.y + Note.swagWidth / 2 - daNote.y) / daNote.scale.y;
+							swagRect.y = (center - daNote.y) / daNote.scale.y;
 							swagRect.height -= swagRect.y;
 
 							daNote.clipRect = swagRect;
 						}
 					}
-				}
+				//}
 
 				daNote.calculateCanBeHit();
 
-				if (!daNote.mustPress && daNote.strumTime <= Conductor.songPosition && daNote.shouldHit)
+				if (!daNote.mustPress && daNote.strumTime <= Conductor.songPosition && daNote.shouldHit && !daNote.hitSustain)
 				{
 					if (SONG.song.toLowerCase() != 'tutorial')
 						camZooming = true;
@@ -2466,9 +2485,14 @@ class PlayState extends MusicBeatState
 					daNote.active = false;
 					daNote.visible = false;
 
-					daNote.kill();
-					notes.remove(daNote, true);
-					daNote.destroy();
+					if (!daNote.isSustainNote)
+					{
+						daNote.kill();
+						notes.remove(daNote, true);
+						daNote.destroy();
+					}
+					else 
+						daNote.hitSustain = true;
 				}
 
 				if (daNote != null)
@@ -2553,7 +2577,7 @@ class PlayState extends MusicBeatState
 
 				if (Conductor.songPosition - Conductor.safeZoneOffset > daNote.strumTime)
 				{
-					if (daNote.mustPress && daNote.playMissOnMiss && !(daNote.isSustainNote && daNote.animation.curAnim.name == "holdend"))
+					if (daNote.mustPress && daNote.playMissOnMiss && !(daNote.isSustainNote && daNote.animation.curAnim.name == "holdend") && !daNote.hitSustain)
 					{
 						vocals.volume = 0;
 						noteMiss(daNote.noteData, daNote);
@@ -3411,7 +3435,7 @@ class PlayState extends MusicBeatState
 				{
 					notes.forEachAlive(function(daNote:Note)
 					{
-						if (heldArray[daNote.noteData] && daNote.isSustainNote && daNote.mustPress)
+						if (heldArray[daNote.noteData] && daNote.isSustainNote && daNote.mustPress && !daNote.hitSustain)
 						{
 							// goodness this if statement is shit lmfao
 							if (((daNote.strumTime <= Conductor.songPosition && daNote.shouldHit)
@@ -3851,9 +3875,14 @@ class PlayState extends MusicBeatState
 			note.wasGoodHit = true;
 			vocals.volume = 1;
 
-			note.kill();
-			notes.remove(note, true);
-			note.destroy();
+			if (!note.isSustainNote)
+			{
+				note.kill();
+				notes.remove(note, true);
+				note.destroy();
+			}
+			else 
+				note.hitSustain = true;
 		}
 	}
 

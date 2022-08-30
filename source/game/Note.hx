@@ -27,6 +27,7 @@ class Note extends FlxSprite
 
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
+	public var hitSustain:Bool = false;
 
 	public var noteScore:Float = 1;
 
@@ -139,7 +140,7 @@ class Note extends FlxSprite
 		if(PlayState.instance.type_Configs.get(arrow_Type)[3] != null)
 			heldMissDamage = Std.parseFloat(PlayState.instance.type_Configs.get(arrow_Type)[3]);
 
-		if (utilities.Options.getData("downscroll") && sustainNote) 
+		if (utilities.Options.getData("downscroll") && !sustainNote) //flip with the camera to look normal
 			flipY = true;
 
 		if (isSustainNote && prevNote != null)

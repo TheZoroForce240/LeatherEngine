@@ -59,6 +59,9 @@ class StrumNote extends FlxSprite
 		colorSwap.hue = noteColor[0] / 360;
 		colorSwap.saturation = noteColor[1] / 100;
 		colorSwap.brightness = noteColor[2] / 100;
+
+		if (utilities.Options.getData("downscroll")) //flip to match camera
+			flipY = true;
 	}
 
 	override function update(elapsed:Float) {
