@@ -28,8 +28,10 @@ class Note extends FlxSprite
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
 	public var hitSustain:Bool = false;
+	public var sustainScaleY:Float = 1;
 
 	public var noteScore:Float = 1;
+	
 
 	public static var swagWidth:Float = 160 * 0.7;
 
@@ -171,6 +173,9 @@ class Note extends FlxSprite
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * speed;
 				prevNote.updateHitbox();
 			}
+
+			sustainScaleY = scale.y;
+			prevNote.sustainScaleY = prevNote.scale.y;
 
 			centerOffsets();
 			centerOrigin();

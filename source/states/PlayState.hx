@@ -400,6 +400,8 @@ class PlayState extends MusicBeatState
 		if (utilities.Options.getData("useCustomScrollSpeed"))
 			speed = utilities.Options.getData("customScrollSpeed") / songMultiplier;
 
+		defaultSpeed = speed;
+
 		Conductor.recalculateStuff(songMultiplier);
 		Conductor.safeZoneOffset *= songMultiplier;
 
@@ -1947,6 +1949,7 @@ class PlayState extends MusicBeatState
 	public var prevEnemyXVals:Map<String, Float> = [];
 
 	var speed:Float = 1.0;
+	var defaultSpeed:Float = 1.0; //for adjusting sustains to the speed
 
 	#if linc_luajit
 	public var generatedSomeDumbEventLuas:Bool = false;
@@ -2570,8 +2573,13 @@ class PlayState extends MusicBeatState
 
 						if (!daNote.isSustainNote)
 							daNote.flipY = coolStrum.flipY;
+						else 
+							daNote.scale.y = daNote.sustainScaleY * (speed/defaultSpeed);
 
 						daNote.color = coolStrum.color;
+
+
+						
 					}
 					else if (!daNote.wasGoodHit && !daNote.modifiedByLua)
 					{
@@ -2608,6 +2616,8 @@ class PlayState extends MusicBeatState
 
 						if (!daNote.isSustainNote)
 							daNote.flipY = coolStrum.flipY;
+						else 
+							daNote.scale.y = daNote.sustainScaleY * (speed/defaultSpeed);
 
 						daNote.color = coolStrum.color;
 					}
@@ -2717,6 +2727,7 @@ class PlayState extends MusicBeatState
 					events.remove(event);
 				}
 			}
+
 		}
 
 		splash_group.forEachDead(function(splash:NoteSplash)
@@ -2733,6 +2744,8 @@ class PlayState extends MusicBeatState
 			if (splash.animation.finished)
 				splash.kill();
 		});
+	
+		executeALuaState("updatePost", [elapsed]);
 	}
 
 	function endSong():Void
